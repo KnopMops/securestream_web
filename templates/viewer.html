@@ -1,0 +1,154 @@
+{% extends "base.html" %} {% block title %}SecureStream | Viewer{% endblock %}
+{% block extra_head %}
+<style>
+	.viewer {
+		text-align: center;
+	}
+
+	.viewer img {
+		width: 100%;
+		max-height: 540px;
+		object-fit: contain;
+		border-radius: 16px;
+		background: #0f172a;
+		cursor: pointer;
+	}
+
+	.viewer img:fullscreen {
+		max-height: 100vh;
+		object-fit: contain;
+		background: #000;
+		border-radius: 0;
+	}
+
+	button.secondary {
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		background: transparent;
+		color: var(--text);
+		padding: 0.65rem 1.25rem;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.status {
+		color: rgba(226, 232, 240, 0.75);
+	}
+</style>
+{% endblock %} {% block content %}
+<h1>Комната {{ room_id }}</h1>
+<div class="viewer">
+	<img id="stream" src="" alt="Кадр комнаты" />
+	<p id="status">Ожидание первого кадра…</p>
+	<div style="margin-top: 1rem">
+		<button id="enableAudioBtn" class="secondary" type="button">
+			Включить звук
+		</button>
+		<button id="fullscreenBtn" class="secondary" type="button" style="margin-left: 0.5rem">
+			Во весь экран
+		</button>
+		<p id="audioHint" class="status">Звук отключён до нажатия кнопки.</p>
+	</div>
+</div>
+
+<script>
+	const frameUrl = '{{ frame_endpoint }}'
+	const audioEndpoint = '{{ url_for("api_get_audio_chunk", room_id=room_id) }}'
+	const img = document.getElementById('stream')
+	const status = document.getElementById('status')
+	const enableAudioBtn = document.getElementById('enableAudioBtn')
+	const audioHint = document.getElementById('audioHint')
+	const fullscreenBtn = document.getElementById('fullscreenBtn')
+	const REFRESH_INTERVAL = 250
+	const AUDIO_INTERVAL = 400
+	const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+	let audioEnabled = false
+	let audioQueue = Promise.resolve()
+	let nextAudioTime = 0
+
+	async function refreshFrame() {
+		try {
+			const response = await fetch(`${frameUrl}?t=${Date.now()}`)
+			if (!response.ok) {
+				status.textContent = 'Кадр недоступен'
+				return
+			}
+			const blob = await response.blob()
+			img.src = URL.createObjectURL(blob)
+			status.textContent = `Последнее обновление: ${new Date().toLocaleTimeString()}`
+		} catch (error) {
+			console.error(error)
+			status.textContent = 'Ошибка получения кадра'
+		}
+	}
+
+	async function loop() {
+		await refreshFrame()
+		setTimeout(loop, REFRESH_INTERVAL)
+	}
+
+	async function refreshAudio() {
+		if (!audioEnabled) {
+			return
+		}
+		try {
+			const response = await fetch(`${audioEndpoint}?t=${Date.now()}`)
+			if (!response.ok) {
+				return
+			}
+			const arrayBuffer = await response.arrayBuffer()
+			audioQueue = audioQueue.then(() => playAudioChunk(arrayBuffer))
+		} catch (error) {
+			console.error('audio', error)
+		}
+	}
+
+	async function playAudioChunk(arrayBuffer) {
+		try {
+			const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0))
+			const source = audioCtx.createBufferSource()
+			source.buffer = audioBuffer
+			source.connect(audioCtx.destination)
+			const startAt = Math.max(audioCtx.currentTime, nextAudioTime)
+			source.start(startAt)
+			nextAudioTime = startAt + audioBuffer.duration
+		} catch (error) {
+			console.error('decode', error)
+		}
+	}
+
+	enableAudioBtn.addEventListener('click', async () => {
+		try {
+			await audioCtx.resume()
+			audioEnabled = true
+			audioHint.textContent = 'Звук активен'
+		} catch (error) {
+			console.error('resume audio', error)
+		}
+	})
+
+	function toggleFullscreen() {
+		if (!document.fullscreenElement) {
+			img.requestFullscreen().catch(err => {
+				console.error('Ошибка входа в полноэкранный режим:', err)
+			})
+			fullscreenBtn.textContent = 'Выйти из полноэкранного режима'
+		} else {
+			document.exitFullscreen().catch(err => {
+				console.error('Ошибка выхода из полноэкранного режима:', err)
+			})
+			fullscreenBtn.textContent = 'Во весь экран'
+		}
+	}
+
+	fullscreenBtn.addEventListener('click', toggleFullscreen)
+
+	document.addEventListener('fullscreenchange', () => {
+		if (!document.fullscreenElement) {
+			fullscreenBtn.textContent = 'Во весь экран'
+		}
+	})
+
+	loop()
+	setInterval(refreshAudio, AUDIO_INTERVAL)
+</script>
+{% endblock %}

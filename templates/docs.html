@@ -1,0 +1,248 @@
+{% extends "base.html" %} {% block title %}SecureStream | API Docs{% endblock %}
+{% block extra_head %}
+<style>
+	.api-grid {
+		margin-top: 2rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.api-card {
+		background: rgba(15, 23, 42, 0.85);
+		border-radius: 18px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.api-card__meta {
+		font-family: 'JetBrains Mono', 'Fira Code', monospace;
+		font-size: 0.9rem;
+		color: #38bdf8;
+	}
+
+	.api-card code {
+		display: block;
+		background: rgba(2, 6, 23, 0.8);
+		border-radius: 12px;
+		padding: 0.9rem;
+		font-family: 'JetBrains Mono', 'Fira Code', monospace;
+		font-size: 0.85rem;
+		overflow-x: auto;
+	}
+</style>
+{% endblock %} {% block content %}
+<header>
+	<h1>Документация API</h1>
+	<p>
+		REST‑интерфейс, который позволяет управлять комнатами, запускать сервер
+		удалённого доступа и работать с видеопотоками SecureStream. Все методы
+		возвращают JSON и подразумевают авторизацию токеном.
+	</p>
+	<div
+		style="
+			background: rgba(15, 23, 42, 0.5);
+			padding: 1rem;
+			border-radius: 12px;
+			margin-top: 1rem;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+		"
+	>
+		<strong>⚠️ Важно:</strong> Все API эндпоинты (кроме /api/auth/*) требуют
+		<code>access_token</code>. <br /><br />
+		<strong>Как получить токен:</strong>
+		<ol style="margin: 0.5rem 0; padding-left: 1.5rem">
+			<li>
+				Зарегистрируйтесь через <code>POST /api/auth/register</code> или
+				авторизуйтесь через <code>POST /api/auth/login</code>
+			</li>
+			<li>Используйте полученный <code>access_token</code> в запросах</li>
+		</ol>
+		<strong>Способы передачи токена:</strong>
+		<ul style="margin: 0.5rem 0; padding-left: 1.5rem">
+			<li>В заголовке: <code>Authorization: Bearer &lt;token&gt;</code></li>
+			<li>В параметре запроса: <code>?access_token=&lt;token&gt;</code></li>
+			<li>
+				В теле запроса (JSON):
+				<code>{"access_token": "&lt;token&gt;", ...}</code>
+			</li>
+		</ul>
+	</div>
+</header>
+
+<section class="api-grid">
+	{% for endpoint in api_endpoints %}
+	<article class="api-card">
+		<div class="api-card__meta">{{ endpoint.method }} {{ endpoint.path }}</div>
+		<h2>{{ endpoint.title }}</h2>
+		<p>{{ endpoint.description }}</p>
+		<strong>Запрос</strong>
+		<code>{{ endpoint.sample_request | tojson(indent=2) }}</code>
+		<strong>Ответ</strong>
+		<code>{{ endpoint.sample_response | tojson(indent=2) }}</code>
+	</article>
+	{% endfor %}
+</section>
+{% endblock %}
+<!DOCTYPE html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<title>SecureStream | API Docs</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css"
+			integrity="sha512-oHDEc8XedGnlb7rY+6HFqRSbVSSMzdEar3vKgJo0+V7c4XRxOK7oP5PLf4KJIp4jHgNH7P0WZ4NeOHz1HvWOCA=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		/>
+		<style>
+			body {
+				margin: 0;
+				font-family: 'Inter', 'Segoe UI', sans-serif;
+				background: #0f172a;
+				color: #e2e8f0;
+			}
+
+			a {
+				color: inherit;
+				text-decoration: none;
+			}
+
+			nav {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				padding: 1.25rem 2.5rem;
+				position: sticky;
+				top: 0;
+				background: rgba(15, 23, 42, 0.9);
+				backdrop-filter: blur(18px);
+				border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+				z-index: 10;
+			}
+
+			main {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 2.5rem 1.5rem 3rem;
+			}
+
+			header h1 {
+				margin: 0 0 0.5rem;
+				font-size: clamp(2rem, 4vw, 2.75rem);
+			}
+
+			header p {
+				margin: 0;
+				color: rgba(226, 232, 240, 0.7);
+				max-width: 720px;
+			}
+
+			.api-grid {
+				margin-top: 2rem;
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+				gap: 1.5rem;
+			}
+
+			.api-card {
+				background: rgba(15, 23, 42, 0.85);
+				border-radius: 18px;
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				padding: 1.5rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.75rem;
+			}
+
+			.api-card h2 {
+				margin: 0;
+				font-size: 1.25rem;
+			}
+
+			.api-card__meta {
+				font-family: 'JetBrains Mono', 'Fira Code', monospace;
+				font-size: 0.9rem;
+				color: #38bdf8;
+			}
+
+			.api-card code {
+				display: block;
+				background: rgba(2, 6, 23, 0.8);
+				border-radius: 12px;
+				padding: 0.9rem;
+				font-family: 'JetBrains Mono', 'Fira Code', monospace;
+				font-size: 0.85rem;
+				overflow-x: auto;
+			}
+
+			.buttons {
+				display: flex;
+				gap: 0.75rem;
+			}
+
+			.buttons a button {
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				background: transparent;
+				color: inherit;
+				border-radius: 999px;
+				padding: 0.55rem 1.25rem;
+				cursor: pointer;
+				transition: border 0.2s ease;
+			}
+
+			.buttons a button:hover {
+				border-color: #38bdf8;
+			}
+		</style>
+	</head>
+	<body>
+		<nav>
+			<a href="{{ url_for('landing_page') }}"><strong>SecureStream</strong></a>
+			<div class="buttons">
+				<a
+					href="{{ github_release_url }}"
+					target="_blank"
+					rel="noreferrer noopener"
+				>
+					<button type="button">GitHub</button>
+				</a>
+				<a href="{{ url_for('landing_page') }}">
+					<button type="button">Главная</button>
+				</a>
+			</div>
+		</nav>
+
+		<main>
+			<header>
+				<h1>Документация API</h1>
+				<p>
+					REST‑интерфейс, который позволяет управлять комнатами, запускать
+					сервер удалённого доступа и работать с видеопотоками SecureStream. Все
+					методы возвращают JSON и подразумевают авторизацию токеном.
+				</p>
+			</header>
+
+			<section class="api-grid">
+				{% for endpoint in api_endpoints %}
+				<article class="api-card">
+					<div class="api-card__meta">
+						{{ endpoint.method }} {{ endpoint.path }}
+					</div>
+					<h2>{{ endpoint.title }}</h2>
+					<p>{{ endpoint.description }}</p>
+					<strong>Запрос</strong>
+					<code>{{ endpoint.sample_request | tojson(indent=2) }}</code>
+					<strong>Ответ</strong>
+					<code>{{ endpoint.sample_response | tojson(indent=2) }}</code>
+				</article>
+				{% endfor %}
+			</section>
+		</main>
+	</body>
+</html>

@@ -1,0 +1,7 @@
+{
+	"room_name": "Моя комната",
+	"room_type": "remote",
+	"password": "secret123",
+	"media_source": "screen",
+	"audio_device_id": "default"
+}

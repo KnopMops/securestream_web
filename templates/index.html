@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block title %}SecureStream | Landing{% endblock %}
+{% block content %}
+<div style="text-align: left">
+	<h1>Единая точка входа для мониторинга и удалённого доступа</h1>
+	<p>
+		SecureStream объединяет чат, видеопотоки, запись экрана и удалённый доступ
+		через систему комнат. Поднимите собственный сервер и подключайтесь к рабочим
+		станциям безопасно и быстро.
+	</p>
+
+	<div style="margin-top: 2rem">
+		<a href="{{ url_for('docs_page') }}">
+			<button
+				style="
+					border: none;
+					background: var(--accent);
+					color: #fff;
+					padding: 0.95rem 1.75rem;
+				"
+			>
+				Документация API
+			</button>
+		</a>
+	</div>
+</div>
+{% endblock %}

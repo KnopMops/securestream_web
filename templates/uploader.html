@@ -1,0 +1,292 @@
+{% extends "base.html" %} {% block title %}SecureStream | Uploader{% endblock %}
+{% block extra_head %}
+<style>
+	.uploader-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 2rem;
+	}
+
+	video,
+	canvas {
+		width: 100%;
+		border-radius: 16px;
+		background: #0f172a;
+	}
+
+	button {
+		border: none;
+		padding: 0.75rem 1.5rem;
+		border-radius: 999px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.primary {
+		background: #22c55e;
+		color: #04121c;
+	}
+
+	.secondary {
+		background: transparent;
+		color: #e2e8f0;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+	}
+
+	.controls {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+</style>
+{% endblock %} {% block content %}
+<h1>Трансляция в комнату {{ room_id }}</h1>
+<section class="uploader-grid">
+	<div>
+		<div class="controls">
+			<label for="mediaSource">Источник видео</label>
+			<select id="mediaSource">
+				<option value="camera">Камера</option>
+				<option value="screen">Экран</option>
+			</select>
+		</div>
+		<div class="controls">
+			<label for="audioDevice">Аудиоустройство</label>
+			<select id="audioDevice">
+				<option value="">Без аудио</option>
+			</select>
+			<button id="refreshAudioBtn" type="button" class="secondary">
+				Обновить устройства
+			</button>
+		</div>
+		<h2>Предпросмотр</h2>
+		<video id="preview" autoplay muted playsinline></video>
+		<div style="margin-top: 1rem; display: flex; gap: 0.75rem">
+			<button id="startBtn" class="primary" type="button">
+				Начать трансляцию
+			</button>
+			<button id="stopBtn" class="secondary" type="button" disabled>
+				Остановить
+			</button>
+		</div>
+		<p id="status" class="status">Камера не запущена</p>
+	</div>
+	<div>
+		<h2>Последний отправленный кадр</h2>
+		<canvas id="buffer" width="640" height="360"></canvas>
+		<p class="status">
+			Кадры отправляются на <code>{{ upload_endpoint }}</code> как base64 (jpeg,
+			70%).
+		</p>
+	</div>
+</section>
+
+<script>
+	const roomId = '{{ room_id }}'
+	const uploadEndpoint = '{{ upload_endpoint }}'
+	const audioChunkEndpoint = '{{ audio_chunk_endpoint }}'
+	const audioDevicesEndpoint = '{{ audio_devices_endpoint }}'
+	const preview = document.getElementById('preview')
+	const canvas = document.getElementById('buffer')
+	const ctx = canvas.getContext('2d')
+	const statusEl = document.getElementById('status')
+	const startBtn = document.getElementById('startBtn')
+	const stopBtn = document.getElementById('stopBtn')
+	const mediaSourceSelect = document.getElementById('mediaSource')
+	const audioDeviceSelect = document.getElementById('audioDevice')
+	const refreshAudioBtn = document.getElementById('refreshAudioBtn')
+
+	let mediaStream = null
+	let audioStream = null
+	let audioRecorder = null
+	let audioRecorderActive = false
+	let intervalId = null
+
+	async function populateAudioDevices() {
+		try {
+			const tempStream = await navigator.mediaDevices.getUserMedia({
+				audio: true,
+			})
+			tempStream.getTracks().forEach(track => track.stop())
+			const devices = await navigator.mediaDevices.enumerateDevices()
+			const audioInputs = devices.filter(device => device.kind === 'audioinput')
+			audioDeviceSelect.innerHTML = '<option value="">Без аудио</option>'
+			audioInputs.forEach(device => {
+				const option = document.createElement('option')
+				option.value = device.deviceId
+				option.textContent =
+					device.label || `Микрофон ${audioDeviceSelect.length}`
+				audioDeviceSelect.appendChild(option)
+			})
+			if (audioInputs.length > 0) {
+				audioDeviceSelect.value = audioInputs[0].deviceId
+			}
+			await reportAudioDevices(audioInputs)
+		} catch (error) {
+			console.error('Не удалось получить аудиоустройства', error)
+			statusEl.textContent = 'Нет доступа к аудиоустройствам'
+		}
+	}
+
+	async function reportAudioDevices(devices) {
+		if (!audioDevicesEndpoint) return
+		try {
+			await fetch(audioDevicesEndpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					room_id: roomId,
+					devices: devices.map(device => ({
+						device_id: device.deviceId,
+						label: device.label,
+						kind: device.kind,
+					})),
+				}),
+			})
+		} catch (error) {
+			console.error('Не удалось отправить аудиоустройства', error)
+		}
+	}
+
+	async function startStreaming() {
+		const source = mediaSourceSelect.value
+		try {
+			if (source === 'screen') {
+				mediaStream = await navigator.mediaDevices.getDisplayMedia({
+					video: true,
+					audio: false,
+				})
+			} else {
+				mediaStream = await navigator.mediaDevices.getUserMedia({
+					video: true,
+					audio: false,
+				})
+			}
+			preview.srcObject = mediaStream
+			statusEl.textContent = 'Трансляция активна'
+			startBtn.disabled = true
+			stopBtn.disabled = false
+			intervalId = setInterval(captureAndSendFrame, 250)
+			await startAudioCapture()
+		} catch (err) {
+			console.error(err)
+			statusEl.textContent = 'Не удалось получить доступ к источнику'
+		}
+	}
+
+	function stopStreaming() {
+		if (intervalId) {
+			clearInterval(intervalId)
+			intervalId = null
+		}
+		if (mediaStream) {
+			mediaStream.getTracks().forEach(track => track.stop())
+			mediaStream = null
+		}
+		if (audioRecorder && audioRecorderActive) {
+			audioRecorder.stop()
+			audioRecorderActive = false
+		}
+		if (audioStream) {
+			audioStream.getTracks().forEach(track => track.stop())
+			audioStream = null
+		}
+		startBtn.disabled = false
+		stopBtn.disabled = true
+		statusEl.textContent = 'Трансляция остановлена'
+	}
+
+	async function captureAndSendFrame() {
+		if (!mediaStream) return
+		ctx.drawImage(preview, 0, 0, canvas.width, canvas.height)
+		const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+
+		try {
+			const response = await fetch(uploadEndpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					room_id: roomId,
+					frame: dataUrl,
+					mime: 'image/jpeg',
+					source: mediaSourceSelect.value,
+					audio_device_id: audioDeviceSelect.value || null,
+					audio_device_label:
+						audioDeviceSelect.options[audioDeviceSelect.selectedIndex]?.text ||
+						null,
+				}),
+			})
+			if (!response.ok) {
+				throw new Error(await response.text())
+			}
+			statusEl.textContent = `Отправлено: ${new Date().toLocaleTimeString()}`
+		} catch (error) {
+			console.error(error)
+			statusEl.textContent = 'Ошибка отправки кадра'
+		}
+	}
+
+	async function startAudioCapture() {
+		const deviceId = audioDeviceSelect.value
+		if (!deviceId) {
+			return
+		}
+		try {
+			audioStream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					deviceId: deviceId === '' ? undefined : { exact: deviceId },
+				},
+				video: false,
+			})
+			audioRecorder = new MediaRecorder(audioStream, {
+				mimeType: 'audio/webm;codecs=opus',
+			})
+			audioRecorder.addEventListener('dataavailable', handleAudioChunk)
+			audioRecorder.start(500)
+			audioRecorderActive = true
+		} catch (error) {
+			console.error('Не удалось получить микрофон', error)
+			statusEl.textContent = 'Не удалось получить микрофон'
+		}
+	}
+
+	function handleAudioChunk(event) {
+		if (!audioChunkEndpoint) {
+			return
+		}
+		if (!event.data || event.data.size === 0) {
+			return
+		}
+		const reader = new FileReader()
+		reader.onloadend = async () => {
+			const result = reader.result
+			const base64Chunk =
+				typeof result === 'string' && result.includes(',')
+					? result.split(',', 2)[1]
+					: result
+			try {
+				await fetch(audioChunkEndpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						room_id: roomId,
+						chunk: base64Chunk,
+						mime: event.data.type || 'audio/webm',
+					}),
+				})
+			} catch (error) {
+				console.error('Ошибка отправки аудио', error)
+			}
+		}
+		reader.readAsDataURL(event.data)
+	}
+
+	refreshAudioBtn.addEventListener('click', populateAudioDevices)
+	startBtn.addEventListener('click', startStreaming)
+	stopBtn.addEventListener('click', stopStreaming)
+	window.addEventListener('beforeunload', stopStreaming)
+
+	populateAudioDevices()
+</script>
+{% endblock %}

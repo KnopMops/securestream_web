@@ -1,0 +1,282 @@
+{% extends "base.html" %} {% block title %}SecureStream | Админ-панель{%
+endblock %} {% block content %}
+<div>
+	<div
+		style="
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 2rem;
+		"
+	>
+		<h1>Админ-панель</h1>
+		<div>
+			<span style="margin-right: 1rem"
+				>Пользователь: <strong>{{ current_user.username }}</strong></span
+			>
+			<a href="{{ url_for('landing_page') }}" class="nav-btn">На главную</a>
+			<button onclick="logout()" class="nav-btn" style="margin-left: 0.5rem">
+				Выход
+			</button>
+		</div>
+	</div>
+
+	<!-- Статистика -->
+	<div style="margin-bottom: 3rem">
+		<h2 style="margin-bottom: 1.5rem">Статистика</h2>
+		<div
+			style="
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 1rem;
+			"
+		>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Всего пользователей
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.total_users }}
+				</div>
+			</div>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Администраторов
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.admin_count }}
+				</div>
+			</div>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Обычных пользователей
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.user_count }}
+				</div>
+			</div>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Всего комнат
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.total_rooms }}
+				</div>
+			</div>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Активных комнат
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.active_rooms }}
+				</div>
+			</div>
+			<div
+				style="
+					background: rgba(15, 23, 42, 0.5);
+					padding: 1.5rem;
+					border-radius: 12px;
+					border: 1px solid rgba(255, 255, 255, 0.1);
+				"
+			>
+				<div
+					style="
+						font-size: 0.9rem;
+						color: rgba(226, 232, 240, 0.7);
+						margin-bottom: 0.5rem;
+					"
+				>
+					Всего участников
+				</div>
+				<div style="font-size: 2rem; font-weight: bold; color: var(--accent)">
+					{{ stats.total_participants }}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Комнаты -->
+	<div style="margin-bottom: 3rem">
+		<h2 style="margin-bottom: 1.5rem">Комнаты</h2>
+		<div style="overflow-x: auto">
+			<table style="width: 100%; border-collapse: collapse">
+				<thead>
+					<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1)">
+						<th style="text-align: left; padding: 0.75rem">ID</th>
+						<th style="text-align: left; padding: 0.75rem">Название</th>
+						<th style="text-align: left; padding: 0.75rem">Тип</th>
+						<th style="text-align: left; padding: 0.75rem">Участников</th>
+						<th style="text-align: left; padding: 0.75rem">Источник</th>
+						<th style="text-align: left; padding: 0.75rem">Создана</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for room in rooms %}
+					<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05)">
+						<td
+							style="
+								padding: 0.75rem;
+								font-family: monospace;
+								font-size: 0.85rem;
+							"
+						>
+							{{ room.room_id[:8] }}...
+						</td>
+						<td style="padding: 0.75rem">{{ room.room_name }}</td>
+						<td style="padding: 0.75rem">{{ room.room_type }}</td>
+						<td style="padding: 0.75rem">{{ room.participants_count }}</td>
+						<td style="padding: 0.75rem">{{ room.media_source }}</td>
+						<td style="padding: 0.75rem; font-size: 0.9rem">
+							{{ room.created_at[:19] }}
+						</td>
+					</tr>
+					{% endfor %} {% if not rooms %}
+					<tr>
+						<td
+							colspan="6"
+							style="
+								padding: 2rem;
+								text-align: center;
+								color: rgba(226, 232, 240, 0.5);
+							"
+						>
+							Нет комнат
+						</td>
+					</tr>
+					{% endif %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<!-- Пользователи -->
+	<div>
+		<h2 style="margin-bottom: 1.5rem">Пользователи</h2>
+		<div style="overflow-x: auto">
+			<table style="width: 100%; border-collapse: collapse">
+				<thead>
+					<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1)">
+						<th style="text-align: left; padding: 0.75rem">ID</th>
+						<th style="text-align: left; padding: 0.75rem">Имя пользователя</th>
+						<th style="text-align: left; padding: 0.75rem">Роль</th>
+						<th style="text-align: left; padding: 0.75rem">Создан</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for user in users %}
+					<tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05)">
+						<td
+							style="
+								padding: 0.75rem;
+								font-family: monospace;
+								font-size: 0.85rem;
+							"
+						>
+							{{ user.user_id[:8] }}...
+						</td>
+						<td style="padding: 0.75rem">{{ user.username }}</td>
+						<td style="padding: 0.75rem">
+							<span
+								style="
+								padding: 0.25rem 0.75rem;
+								border-radius: 999px;
+								font-size: 0.85rem;
+								background: {% if user.role == 'admin' %}rgba(239, 68, 68, 0.2){% else %}rgba(34, 197, 94, 0.2){% endif %};
+								color: {% if user.role == 'admin' %}#ef4444{% else %}#22c55e{% endif %};
+							"
+							>
+								{{ user.role }}
+							</span>
+						</td>
+						<td style="padding: 0.75rem; font-size: 0.9rem">
+							{{ user.created_at[:19] }}
+						</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	async function logout() {
+		try {
+			await fetch('/api/auth/logout', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+			})
+			localStorage.removeItem('access_token')
+			window.location.href = '/login'
+		} catch (error) {
+			console.error('Ошибка выхода:', error)
+			window.location.href = '/login'
+		}
+	}
+</script>
+{% endblock %}
